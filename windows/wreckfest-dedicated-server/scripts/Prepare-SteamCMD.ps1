@@ -17,18 +17,22 @@ Param(
     [string]$SteamHome
 )
 
-Install-Module -Name SteamPS -InstallPath $SteamHome
-Import-Module SteamPS
+Install-Module -Name SteamPS -Force
+Import-Module SteamPS -Verbose
 
 # Get steamcmd
 Install-SteamCMD -InstallPath $SteamHome -Force
 
 # Ensure that steamcmd.exe can get through any firewall rules to download/update apps
-$SteamCmdPath=(Get-ChildItem -Path $SteamHome -Recurse -Filter steamcmd.exe)[0].FullName
-New-NetFirewallRule -Program $SteamCmdPath
-                    -Action Allow
-                    -Profile Domain, Public, Private
-                    -DisplayName "SteamCMD.exe"
-                    -Description "Allow SteamCMD through the firewall"
-                    -Direction Outbound
-                    -Enabled True
+# but only if the firewall service is running...
+if (( Get-Service -Name "Windows Defender Firewall").Status -eq "Running") {
+
+    $SteamCmdPath=(Get-ChildItem -Path $SteamHome -Recurse -Filter steamcmd.exe)[0].FullName
+    New-NetFirewallRule -Program $SteamCmdPath
+                        -Action Allow
+                        -Profile Domain, Public, Private
+                        -DisplayName "SteamCMD.exe"
+                        -Description "Allow SteamCMD through the firewall"
+                        -Direction Outbound
+                        -Enabled True
+}
