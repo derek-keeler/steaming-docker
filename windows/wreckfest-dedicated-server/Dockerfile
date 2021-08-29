@@ -23,6 +23,9 @@ RUN Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Verbos
 # Copy our setupscripts into the scripts folder
 COPY scripts scripts
 
+# Now run some scripts
+SHELL ["powershell", "-file"]
+
 # Open up the firewall
 RUN scripts/Open-WreckfestPorts.ps1 -Verbose
 
