@@ -36,7 +36,9 @@ RUN scripts/Prepare-SteamCMD.ps1 -SteamHome ${STEAM_HOME} -Verbose
 RUN scripts/Prepare-WreckfestDedicatedServer.ps1 -ServerHome ${SERVER_HOME} -GameServerName ${GAME_SERVER_NAME} -GameServerLogFile ${LOG_FOLDER} -GameServerAdminIds ${ADMIN_STEAM_USER_IDS} -GameServerStartupScript ${STARTUP_SCRIPT} -Verbose
 
 SHELL ["cmd.exe", "/S", "/C" ]
-ENTRYPOINT [ ${STARTUP_SCRIPT} ]
+ENTRYPOINT powershell
+
+# ENTRYPOINT ${STARTUP_SCRIPT}
 
 # Step 13/17 : RUN scripts/Open-WreckfestPorts.ps1 -Verbose
 #  ---> Running in e4f4effd9ac7

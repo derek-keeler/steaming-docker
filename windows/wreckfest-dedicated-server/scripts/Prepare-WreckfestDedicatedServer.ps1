@@ -81,10 +81,23 @@ $SteamAppName = "Wreckfest Dedicated Server"
 $SteamAppDefaultConfigFilename = "initial_server_config.cfg"
 $DefaultStartupScriptFilename="game-server-startup.bat"
 
-# Get our trusty steamPS module up and running:
+Write-Verbose "Operating parameters:"
+Write-Verbose "==] ServerHome: '$ServerHome'"
+Write-Verbose "==] SteamAppId: '$SteamAppId'"
+Write-Verbose "==] GameConfigTemplate: '$GameConfigTemplate'"
+Write-Verbose "==] GameServerName: '$GameServerName'"
+Write-Verbose "==] GameServerLogFile: '$GameServerLogFile'"
+Write-Verbose "==] GameServerAdminIds: '$GameServerAdminIds'"
+Write-Verbose "==] GameServerStartupScript: '$GameServerStartupScript'"
+Write-Verbose "==] SteamAppShortName: '$SteamAppShortName'"
+Write-Verbose "==] SteamAppName: '$SteamAppName'"
+Write-Verbose "==] SteamAppDefaultConfigFilename: '$SteamAppDefaultConfigFilename'"
+Write-Verbose "==] DefaultStartupScriptFilename: '$DefaultStartupScriptFilename'"
+
+Write-Verbose "STEP 1: Get our trusty steamPS module up and running"
 Import-Module SteamPS
 
-## Get the appid for Wreckfest server (this will likely never change from 361580 so call this overkill if you wish)
+Write-Verbose "STEP 2: Get the appid for Wreckfest server (this will likely never change from 361580 so call this overkill if you wish)"
 if ($SteamAppId -eq '') {
     Write-Verbose "SteamAppId was not specified, obtaining it from steamcmd..."
     $steamid = Find-SteamAppID -ApplicationName $SteamAppName
@@ -92,36 +105,55 @@ if ($SteamAppId -eq '') {
     $SteamAppId = $steamid.appid
 }
 
-## "Update" or install-if-not-there the dedicated server.
+Write-Verbose "STEP 3: 'Update' or install-if-not-there the dedicated server."
 Write-Verbose "Installing/updated the $SteamAppName app in folder $($ServerHome)"
 Update-SteamApp -AppId $SteamAppId -Path $ServerHome -Force
 
-## Update the base settings for the server with passed in values as necessary
-# find the initial_server_config.cfg that ships with the game server
-if ($ServerConfigTemplate -eq '') {
+Write-Verbose "STEP 4: Update the base settings for the server with passed in values as necessary"
+Write-Verbose "find the initial_server_config.cfg that ships with the game server"
+if ($GameConfigTemplate -eq '') {
     Write-Verbose "GameConfigTemplate was not specified, obtaining $SteamAppDefaultConfigFilename from the app..."
-    $ServerConfigTemplate=(Get-ChildItem -Path $ServerHome -Recurse -Filter $SteamAppDefaultConfigFilename)[0].FullName
+    $GameConfigTemplate=(Get-ChildItem -Path $ServerHome -Recurse -Filter $SteamAppDefaultConfigFilename)[0].FullName
 }
-Write-Verbose "Using configuration template file to create config: $ServerConfigTemplate"
+Write-Verbose "Using configuration template file to create config: $GameConfigTemplate"
 $ServerConfig = Join-Path -Path $ServerHome -ChildPath "server_config.cfg"
 Write-Verbose "Writing configuration file to use here: $ServerConfig"
 
+Write-Verbose "STEP 5: Ensure a valid game server name"
 if ($GameServerName -eq '') {
     $GameServerName = "$ENV:COMPUTERNAME_$SteamAppShortName"
     Write-Verbose "No game server name was specified, created from this machine name + game service name: $GameServerName"
 }
+Write-Verbose "Using game server name = $GameServerName"
 
-# modify the server configuration with values sent in
-(Get-Content -Path $ServerConfigTemplate) | Foreach-Object {
+
+Write-Verbose "STEP 6: Modify the server configuration with values sent in"
+(Get-Content -Path $GameConfigTemplate) | Foreach-Object {
     # Set the game server name
+    if ($PSItem -match "^server_name=.*$") {
+        Write-Verbose "==] Found the server_name line '$PSItem'"
+        Write-Verbose "==] Changing it to 'server_name=$GameServerName'"
+    }
     $PSItem -replace "^server_name=.*$", "server_name=$GameServerName"
     # Set the logfile
+    if ($PSItem -match "^log=.*$") {
+        Write-Verbose "==] Found the log line '$PSItem'"
+        Write-Verbose "==] Changing it to 'log=$GameServerLogFile'"
+    }
     $PSItem -replace "^log=.*$", "log=$GameServerLogFile"
     # Set any admins
     if ($GameServerAdminIds -ne '') {
         # do not set the first connected user to the admin, we have a list of admins
+        if ($PSItem -match "^owner_disabled=.*$") {
+            Write-Verbose "==] Found the log line '$PSItem'"
+            Write-Verbose "==] Changing it to 'owner_disabled=1'"
+        }
         $PSItem -replace "^owner_disabled=.*$", "owner_disabled=1"
         # set the list of admins (note that this is commented out in the default game server config)
+        if ($PSItem -match "^[#]*admin_steam_ids=.*$") {
+            Write-Verbose "==] Found the log line '$PSItem'"
+            Write-Verbose "==] Changing it to 'admin_steam_ids=$GameServerAdminIds'"
+        }
         $PSItem -replace "^[#]*admin_steam_ids=.*$", "admin_steam_ids=$GameServerAdminIds"
     }
 } | Set-Content -Path $ServerConfig -Encoding oem
