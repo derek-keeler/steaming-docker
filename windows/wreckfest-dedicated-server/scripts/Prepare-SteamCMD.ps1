@@ -16,6 +16,8 @@ Param(
     [Parameter(Mandatory)]
     [string]$SteamHome
 )
+Write-Verbose "Operating parameters:"
+Write-Verbose "==] SteamHome: '$SteamHome'"
 
 Install-Module -Name SteamPS -Force
 Import-Module SteamPS -Verbose
