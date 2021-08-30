@@ -26,7 +26,14 @@ Param(
 )
 
 Write-Verbose "Setting ports to be accessible"
-Write-Verbose "$ProtocolsAndPorts"
+Write-Verbose "==] ProtocolsAndPorts:"
+$ProtocolsAndPorts.Keys | ForEach-Object {
+    $proto = $PSItem
+    Write-Verbose "==]   Protocol: $proto"
+    $ProtocolsAndPorts[$proto] | ForEach-Object {
+        Write-Verbose "==]       Port: $PSItem"
+    }
+}
 
 if (( Get-Service -Name "Windows Defender Firewall").Status -ne "Running") {
     Write-Verbose "No firewall running. No need to set ports."
