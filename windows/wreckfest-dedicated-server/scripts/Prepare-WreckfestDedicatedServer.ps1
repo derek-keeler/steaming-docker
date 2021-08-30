@@ -106,6 +106,7 @@ Write-Verbose "==] SteamAppShortName: '$SteamAppShortName'"
 Write-Verbose "==] SteamAppName: '$SteamAppName'"
 Write-Verbose "==] SteamAppDefaultConfigFilename: '$SteamAppDefaultConfigFilename'"
 Write-Verbose "==] DefaultStartupScriptFilename: '$DefaultStartupScriptFilename'"
+Write-Verbose "==] DefaultGameServerExeFilename: '$DefaultGameServerExeFilename'"
 
 Write-Verbose "STEP 1: Get our trusty steamPS module up and running"
 Import-Module SteamPS
@@ -141,32 +142,31 @@ Write-Verbose "Using game server name = $GameServerName"
 
 
 Write-Verbose "STEP 6: Modify the server configuration with values sent in"
+$replacements = @{
+    "^server_name=.*$"=@{
+        "repl"="server_name=$GameServerName";
+        "active"=$true 
+    };
+    "^log=.*$"=@{
+        "repl"= "log=$GameServerLogFile";
+        "active"=$true 
+    };
+    "^owner_disabled=.*$"=@{
+        "repl"="owner_disabled=1";
+        "active"=($GameServerAdminIds -ne '')
+    };
+    "^[#]*admin_steam_ids=.*$"=@{
+        "repl"="admin_steam_ids=$GameServerAdminIds";
+        "active"=($GameServerAdminIds -ne '') 
+    };
+}
+
 (Get-Content -Path $GameConfigTemplate) | Foreach-Object {
-    # Set the game server name
-    if ($PSItem -match "^server_name=.*$") {
-        Write-Verbose "==] Found the server_name line '$PSItem'"
-        Write-Verbose "==] Changing it to 'server_name=$GameServerName'"
-        $PSItem -replace "^server_name=.*$", "server_name=$GameServerName"
-    }
-    # Set the logfile
-    if ($PSItem -match "^log=.*$") {
-        Write-Verbose "==] Found the log line '$PSItem'"
-        Write-Verbose "==] Changing it to 'log=$GameServerLogFile'"
-        $PSItem -replace "^log=.*$", "log=$GameServerLogFile"
-    }
-    # Set any admins
-    if ($GameServerAdminIds -ne '') {
-        # do not set the first connected user to the admin, we have a list of admins
-        if ($PSItem -match "^owner_disabled=.*$") {
-            Write-Verbose "==] Found the log line '$PSItem'"
-            Write-Verbose "==] Changing it to 'owner_disabled=1'"
-            $PSItem -replace "^owner_disabled=.*$", "owner_disabled=1"
-        }
-        # set the list of admins (note that this is commented out in the default game server config)
-        if ($PSItem -match "^[#]*admin_steam_ids=.*$") {
-            Write-Verbose "==] Found the log line '$PSItem'"
-            Write-Verbose "==] Changing it to 'admin_steam_ids=$GameServerAdminIds'"
-            $PSItem -replace "^[#]*admin_steam_ids=.*$", "admin_steam_ids=$GameServerAdminIds"
+    $line = $PSItem
+    $replacements.Keys | Foreach-Object {
+        if ($replacements[$PSItem]['active'] -and ($line -match $PSItem)) {
+            $replacements[$PSItem]['repl']
+            continue # <--- TODO: This won't break out of the outer loop
         }
     }
 } | Set-Content -Path $ServerConfig -Encoding oem
@@ -178,13 +178,15 @@ if ($GameServerStartupScript -eq '') {
 }
 Write-Verbose "Writing server startup script to $GameServerStartupScript"
 
-$exePathObj = (Get-ChildItem -Path $SteamHome -Recurse -Filter $DefaultGameServerExeFilename)[0]
-$exeFile = $exePath.FullName
-$exePath = $exePath.Directory.FullName
+Write-Verbose "Looking under $ServerHome for the $DefaultGameServerExeFilename file..."
+$exePathObj = (Get-ChildItem -Path $ServerHome -Recurse -Depth 2 -Filter $DefaultGameServerExeFilename)[0]
+Write-Verbose "...found '$($exePathObj.FullName)'"
+$exeFile = $exePathObj.FullName
+$exePath = $exePathObj.Directory.FullName
 Write-Verbose "Found the path to the game server: $exeFile"
 Write-Verbose "...with folder extracted: $exeFile"
 Out-File -FilePath $GameServerStartupScript -Encoding oem -InputObject "228380 >$(Join-Path -Path $exePath -ChildPath 'steam_appid.txt')"
-Out-File -FilePath $GameServerStartupScript -Encoding oem -InputObject "start /B $exePath -s server_config=$ServerConfig" -Append
+Out-File -FilePath $GameServerStartupScript -Encoding oem -InputObject "start /B $exeFile -s server_config=$ServerConfig" -Append
 Write-Verbose "Content of startup script:"
 Get-Content -Path $GameServerStartupScript | ForEach-Object {
     Write-Verbose $PSItem
