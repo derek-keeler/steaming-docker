@@ -10,6 +10,9 @@ in the future by parsing and updating the default start_server.bat script that i
 .PARAMETER ServerHome
 Path to where all game server work (downloads, parsing, etc...) should be done, and where the executables should be installed under.
 
+.PARAMETER SteamHome
+Path to where all steamcmd-related work should be done, and where the steamcmd should be installed.
+
 .PARAMETER SteamAppId
 Optional steam app id of the game server itself (will be deduced at runtime if omitted/set to the empty string).
 
@@ -29,7 +32,7 @@ Optional comma-separated list of Steam User Ids. This list defines the people wh
 Path to the simple startup script that we create for the game. If omitted the script will be named game-server-startup.bat in the ServerHome folder.
 
 .EXAMPLE
-Prepare-WreckfestDedicatedServer.ps1 -ServerHome C:\Wreckfest\service -Verbose
+Prepare-WreckfestDedicatedServer.ps1 -ServerHome C:\Wreckfest\service -SteamHome C:\Wreckfest\steam -Verbose
 Install and set up the dedicated server under the C:\Wreckfest\service path, and show
 verbose logging output during execution.
 
@@ -44,15 +47,23 @@ Param(
     [ValidateNotNullOrEmpty()]
     [string]$ServerHome,
 
-    [Parameter(Mandatory=$false,
+    [Parameter(Mandatory=$true,
                Position=1,
+               ValueFromPipeline=$true,
+               ValueFromPipelineByPropertyName=$true,
+               HelpMessage="Path to steam install folder.")]
+    [ValidateNotNullOrEmpty()]
+    [string]$SteamHome,
+
+    [Parameter(Mandatory=$false,
+               Position=2,
                ValueFromPipeline=$true,
                ValueFromPipelineByPropertyName=$true,
                HelpMessage="Steam appid of game server")]
     [string]$SteamAppId='361580',
 
     [Parameter(Mandatory=$false,
-               Position=2,
+               Position=3,
                ValueFromPipeline=$true,
                ValueFromPipelineByPropertyName=$true,
                HelpMessage="Game server configuration template")]
@@ -80,9 +91,11 @@ $SteamAppShortName = "Wreckfest"
 $SteamAppName = "Wreckfest Dedicated Server"
 $SteamAppDefaultConfigFilename = "initial_server_config.cfg"
 $DefaultStartupScriptFilename="game-server-startup.bat"
+$DefaultGameServerExeFilename="Wreckfest_x64.exe"
 
 Write-Verbose "Operating parameters:"
 Write-Verbose "==] ServerHome: '$ServerHome'"
+Write-Verbose "==] SteamHome: '$SteamHome'"
 Write-Verbose "==] SteamAppId: '$SteamAppId'"
 Write-Verbose "==] GameConfigTemplate: '$GameConfigTemplate'"
 Write-Verbose "==] GameServerName: '$GameServerName'"
@@ -133,32 +146,48 @@ Write-Verbose "STEP 6: Modify the server configuration with values sent in"
     if ($PSItem -match "^server_name=.*$") {
         Write-Verbose "==] Found the server_name line '$PSItem'"
         Write-Verbose "==] Changing it to 'server_name=$GameServerName'"
+        $PSItem -replace "^server_name=.*$", "server_name=$GameServerName"
     }
-    $PSItem -replace "^server_name=.*$", "server_name=$GameServerName"
     # Set the logfile
     if ($PSItem -match "^log=.*$") {
         Write-Verbose "==] Found the log line '$PSItem'"
         Write-Verbose "==] Changing it to 'log=$GameServerLogFile'"
+        $PSItem -replace "^log=.*$", "log=$GameServerLogFile"
     }
-    $PSItem -replace "^log=.*$", "log=$GameServerLogFile"
     # Set any admins
     if ($GameServerAdminIds -ne '') {
         # do not set the first connected user to the admin, we have a list of admins
         if ($PSItem -match "^owner_disabled=.*$") {
             Write-Verbose "==] Found the log line '$PSItem'"
             Write-Verbose "==] Changing it to 'owner_disabled=1'"
+            $PSItem -replace "^owner_disabled=.*$", "owner_disabled=1"
         }
-        $PSItem -replace "^owner_disabled=.*$", "owner_disabled=1"
         # set the list of admins (note that this is commented out in the default game server config)
         if ($PSItem -match "^[#]*admin_steam_ids=.*$") {
             Write-Verbose "==] Found the log line '$PSItem'"
             Write-Verbose "==] Changing it to 'admin_steam_ids=$GameServerAdminIds'"
+            $PSItem -replace "^[#]*admin_steam_ids=.*$", "admin_steam_ids=$GameServerAdminIds"
         }
-        $PSItem -replace "^[#]*admin_steam_ids=.*$", "admin_steam_ids=$GameServerAdminIds"
     }
 } | Set-Content -Path $ServerConfig -Encoding oem
 
-# create a simple startup script
+Write-Verbose "STEP 7: create a simple startup script"
 if ($GameServerStartupScript -eq '') {
+    Write-Verbose "Server startup script not specified, setting to the default"
     $GameServerStartupScript = Join-Path -Path $ServerHome -ChildPath $DefaultStartupScriptFilename
 }
+Write-Verbose "Writing server startup script to $GameServerStartupScript"
+
+$exePathObj = (Get-ChildItem -Path $SteamHome -Recurse -Filter $DefaultGameServerExeFilename)[0]
+$exeFile = $exePath.FullName
+$exePath = $exePath.Directory.FullName
+Write-Verbose "Found the path to the game server: $exeFile"
+Write-Verbose "...with folder extracted: $exeFile"
+Out-File -FilePath $GameServerStartupScript -Encoding oem -InputObject "228380 >$(Join-Path -Path $exePath -ChildPath 'steam_appid.txt')"
+Out-File -FilePath $GameServerStartupScript -Encoding oem -InputObject "start /B $exePath -s server_config=$ServerConfig" -Append
+Write-Verbose "Content of startup script:"
+Get-Content -Path $GameServerStartupScript | ForEach-Object {
+    Write-Verbose $PSItem
+}
+
+Write-Verbose "======================== DONE ========================="
