@@ -31,7 +31,7 @@ RUN scripts/Open-WreckfestPorts.ps1 -Verbose
 # Set up the steamCMD environment
 RUN scripts/Prepare-SteamCMD.ps1 -SteamHome $Env:STEAM_HOME -Verbose
 # Set up the game server
-RUN scripts/Prepare-WreckfestDedicatedServer.ps1 -ServerHome $Env:SERVER_HOME -GameServerName $Env:GAME_SERVER_NAME -GameServerLogFile $Env:LOG_FOLDER -GameServerAdminIds $Env:ADMIN_STEAM_USER_IDS -GameServerStartupScript $Env:STARTUP_SCRIPT -Verbose
+RUN scripts/Prepare-WreckfestDedicatedServer.ps1 -ServerHome $Env:SERVER_HOME -SteamHome $Env:STEAM_HOME -GameServerName $Env:GAME_SERVER_NAME -GameServerLogFile $Env:LOG_FOLDER -GameServerAdminIds $Env:ADMIN_STEAM_USER_IDS -GameServerStartupScript $Env:STARTUP_SCRIPT -Verbose
 
 SHELL ["cmd.exe", "/S", "/C" ]
 ENTRYPOINT powershell
