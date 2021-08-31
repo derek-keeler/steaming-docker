@@ -39,59 +39,60 @@ verbose logging output during execution.
 #>
 [CmdletBinding()]
 Param(
-    [Parameter(Mandatory=$true,
-               Position=0,
-               ValueFromPipeline=$true,
-               ValueFromPipelineByPropertyName=$true,
-               HelpMessage="Install path for game server.")]
+    [Parameter(Mandatory = $true,
+        Position = 0,
+        ValueFromPipeline = $true,
+        ValueFromPipelineByPropertyName = $true,
+        HelpMessage = "Install path for game server.")]
     [ValidateNotNullOrEmpty()]
     [string]$ServerHome,
 
-    [Parameter(Mandatory=$true,
-               Position=1,
-               ValueFromPipeline=$true,
-               ValueFromPipelineByPropertyName=$true,
-               HelpMessage="Path to steam install folder.")]
+    [Parameter(Mandatory = $true,
+        Position = 1,
+        ValueFromPipeline = $true,
+        ValueFromPipelineByPropertyName = $true,
+        HelpMessage = "Path to steam install folder.")]
     [ValidateNotNullOrEmpty()]
     [string]$SteamHome,
 
-    [Parameter(Mandatory=$false,
-               Position=2,
-               ValueFromPipeline=$true,
-               ValueFromPipelineByPropertyName=$true,
-               HelpMessage="Steam appid of game server")]
-    [string]$SteamAppId='361580',
+    [Parameter(Mandatory = $false,
+        Position = 2,
+        ValueFromPipeline = $true,
+        ValueFromPipelineByPropertyName = $true,
+        HelpMessage = "Steam appid of game server")]
+    [string]$SteamAppId = '361580',
 
-    [Parameter(Mandatory=$false,
-               Position=3,
-               ValueFromPipeline=$true,
-               ValueFromPipelineByPropertyName=$true,
-               HelpMessage="Game server configuration template")]
-    [string]$GameConfigTemplate='',
+    [Parameter(Mandatory = $false,
+        Position = 3,
+        ValueFromPipeline = $true,
+        ValueFromPipelineByPropertyName = $true,
+        HelpMessage = "Game server configuration template")]
+    [string]$GameConfigTemplate = '',
 
-    [Parameter(Mandatory=$false,
-               HelpMessage="Game server name")]
-    [string]$GameServerName='',
+    [Parameter(Mandatory = $false,
+        HelpMessage = "Game server name")]
+    [string]$GameServerName = '',
 
-    [Parameter(Mandatory=$false,
-               HelpMessage="Log file path")]
-    [string]$GameServerLogFile='',
+    [Parameter(Mandatory = $false,
+        HelpMessage = "Log file path")]
+    [string]$GameServerLogFile = '',
 
-    [Parameter(Mandatory=$false,
-               HelpMessage="Steam user ids (comma-separated list) to specify game server admins")]
-    [string]$GameServerAdminIds='',
+    [Parameter(Mandatory = $false,
+        HelpMessage = "Steam user ids (comma-separated list) to specify game server admins")]
+    [string]$GameServerAdminIds = '',
 
-    [Parameter(Mandatory=$false,
-               HelpMessage="Startup script path")]
-    [string]$GameServerStartupScript=''
+    [Parameter(Mandatory = $false,
+        HelpMessage = "Startup script path")]
+    [string]$GameServerStartupScript = ''
 )
 
 # "Constants" insofar as Powershell can have constants
 $SteamAppShortName = "Wreckfest"
 $SteamAppName = "Wreckfest Dedicated Server"
 $SteamAppDefaultConfigFilename = "initial_server_config.cfg"
-$DefaultStartupScriptFilename="game-server-startup.bat"
-$DefaultGameServerExeFilename="Wreckfest_x64.exe"
+$DefaultStartupScriptFilename = "game-server-startup.bat"
+$DefaultGameServerExeFilename = "Wreckfest_x64.exe"
+$DefaultGameServerPassword = "wr3ckf3stern!"
 
 Write-Verbose "Operating parameters:"
 Write-Verbose "==] ServerHome: '$ServerHome'"
@@ -107,6 +108,7 @@ Write-Verbose "==] SteamAppName: '$SteamAppName'"
 Write-Verbose "==] SteamAppDefaultConfigFilename: '$SteamAppDefaultConfigFilename'"
 Write-Verbose "==] DefaultStartupScriptFilename: '$DefaultStartupScriptFilename'"
 Write-Verbose "==] DefaultGameServerExeFilename: '$DefaultGameServerExeFilename'"
+Write-Verbose "==] DefaultGameServerExeFilename: '$DefaultGameServerPassword'"
 
 Write-Verbose "STEP 1: Get our trusty steamPS module up and running"
 Import-Module SteamPS
@@ -127,7 +129,7 @@ Write-Verbose "STEP 4: Update the base settings for the server with passed in va
 Write-Verbose "find the initial_server_config.cfg that ships with the game server"
 if ($GameConfigTemplate -eq '') {
     Write-Verbose "GameConfigTemplate was not specified, obtaining $SteamAppDefaultConfigFilename from the app..."
-    $GameConfigTemplate=(Get-ChildItem -Path $ServerHome -Recurse -Filter $SteamAppDefaultConfigFilename)[0].FullName
+    $GameConfigTemplate = (Get-ChildItem -Path $ServerHome -Recurse -Filter $SteamAppDefaultConfigFilename)[0].FullName
 }
 Write-Verbose "Using configuration template file to create config: $GameConfigTemplate"
 $ServerConfig = Join-Path -Path $ServerHome -ChildPath "server_config.cfg"
@@ -143,32 +145,42 @@ Write-Verbose "Using game server name = $GameServerName"
 
 Write-Verbose "STEP 6: Modify the server configuration with values sent in"
 $replacements = @{
-    "^server_name=.*$"=@{
-        "repl"="server_name=$GameServerName";
-        "active"=$true 
+    "^server_name=.*$" = @{
+        "repl"   = "server_name=$GameServerName";
+        "active" = $true 
     };
-    "^log=.*$"=@{
-        "repl"= "log=$GameServerLogFile";
-        "active"=$true 
+    "^log=.*$" = @{
+        "repl"   = "log=$GameServerLogFile";
+        "active" = $true 
     };
-    "^owner_disabled=.*$"=@{
-        "repl"="owner_disabled=1";
-        "active"=($GameServerAdminIds -ne '')
+    "^password=.*$" = @{
+        "repl"   = "password=$DefaultGameServerPassword";
+        "active" = $true 
     };
-    "^[#]*admin_steam_ids=.*$"=@{
-        "repl"="admin_steam_ids=$GameServerAdminIds";
-        "active"=($GameServerAdminIds -ne '') 
+    "^owner_disabled=.*$" = @{
+        "repl"   = "owner_disabled=1";
+        "active" = ($GameServerAdminIds -ne '')
+    };
+    "^[#]*admin_steam_ids=.*$" = @{
+        "repl"   = "admin_steam_ids=$GameServerAdminIds";
+        "active" = ($GameServerAdminIds -ne '') 
     };
 }
 
 (Get-Content -Path $GameConfigTemplate) | Foreach-Object {
     $line = $PSItem
+
+    # see if you can find the replacer value in the keys from the replacements dict
     $replacements.Keys | Foreach-Object {
         if ($replacements[$PSItem]['active'] -and ($line -match $PSItem)) {
-            $replacements[$PSItem]['repl']
-            continue # <--- TODO: This won't break out of the outer loop
+            # if you find it, just update the output line to the updated value
+            $line = $replacements[$PSItem]['repl']
+            Write-Verbose "Found match for replacement item '$PSItem', setting value to '$line')"
         }
     }
+    # write out the line once, replaced one or original
+    $line
+
 } | Set-Content -Path $ServerConfig -Encoding oem
 
 Write-Verbose "STEP 7: create a simple startup script"
