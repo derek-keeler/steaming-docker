@@ -93,6 +93,7 @@ $SteamAppDefaultConfigFilename = "initial_server_config.cfg"
 $DefaultStartupScriptFilename = "game-server-startup.bat"
 $DefaultGameServerExeFilename = "Wreckfest_x64.exe"
 $DefaultGameServerPassword = "wr3ckf3stern!"
+$DefaultD3DDownloadUri="https://download.microsoft.com/download/8/4/A/84A35BF1-DAFE-4AE8-82AF-AD2AE20B6B14/directx_Jun2010_redist.exe"
 
 Write-Verbose "Operating parameters:"
 Write-Verbose "==] ServerHome: '$ServerHome'"
@@ -109,6 +110,7 @@ Write-Verbose "==] SteamAppDefaultConfigFilename: '$SteamAppDefaultConfigFilenam
 Write-Verbose "==] DefaultStartupScriptFilename: '$DefaultStartupScriptFilename'"
 Write-Verbose "==] DefaultGameServerExeFilename: '$DefaultGameServerExeFilename'"
 Write-Verbose "==] DefaultGameServerExeFilename: '$DefaultGameServerPassword'"
+Write-Verbose "==] DefaultD3DDownloadUri: '$DefaultD3DDownloadUri'"
 
 Write-Verbose "STEP 1: Get our trusty steamPS module up and running"
 Import-Module SteamPS
@@ -166,6 +168,10 @@ $replacements = @{
         "active" = ($GameServerAdminIds -ne '') 
     };
 }
+
+Write-Verbose "Download d3d from $DefaultD3DDownloadUri"
+Invoke-WebRequest -UseBasicParsing -Uri $DefaultD3DDownloadUri -OutFile (Join-Path -Path $ServerHome -ChildPath "directx_Jun2010_redist.exe")
+
 
 (Get-Content -Path $GameConfigTemplate) | Foreach-Object {
     $line = $PSItem
